@@ -911,10 +911,12 @@
                 
                 let cardToPlay;
                 const leadingCard = trick.length > 0 ? trick[0].card : null;
+                const leadingSuit = leadingCard ? leadingCard.suit : null;
+
 
                 if (player.isHuman) {
                     showMessage('نوبت شماست، لطفاً کارت خود را بازی کنید.', 2000);
-                    toggleCardClicks(leadingCard);
+                    toggleCardClicks(leadingSuit);
                     
                     cardToPlay = await new Promise(resolve => {
                         humanTurnResolver = resolve;
@@ -1114,17 +1116,17 @@
             team2HandsWonEl.textContent = team2HandsWon;
         }
         
-        function toggleCardClicks(leadingCard) {
+        function toggleCardClicks(leadingSuit) {
             const handEl = playerHands[players[0].id];
             const allCards = handEl.querySelectorAll('.card');
             
-            const humanPlayerHasLeadingSuit = players[0].hand.some(c => c.suit === leadingCard?.suit);
+            const humanPlayerHasLeadingSuit = players[0].hand.some(c => c.suit === leadingSuit);
             
             allCards.forEach(cardEl => {
                 const card = players[0].hand.find(c => c.suit === cardEl.dataset.suit && c.value === cardEl.dataset.value);
                 
                 if (hokm && hokmMode === null) { // Normal mode
-                    if (leadingCard && humanPlayerHasLeadingSuit) {
+                    if (leadingSuit && humanPlayerHasLeadingSuit) {
                         if (card.suit !== leadingSuit) {
                             cardEl.classList.add('disabled');
                         } else {
