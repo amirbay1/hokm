@@ -423,11 +423,11 @@
             <div id="status-message" class="status-message hidden"></div>
             <div id="game-over-message" class="game-over-message hidden"></div>
             <div id="hokm-selection-message" class="hokm-selection-message">
-                <span id="hokm-instruction">لطفاً یک کارت را برای تعیین حکم و یک حالت را انتخاب کنید.</span>
+                <span id="hokm-instruction">لطفاً یک حکم یا یک حالت بازی را انتخاب کنید.</span>
                 <div class="hokm-modes" id="hokm-mode-selector">
-                    <button data-mode="sars" class="active">سرس</button>
-                    <button data-mode="nars">نرس</button>
-                    <button data-mode="as-nars">آس نرس</button>
+                    <button data-mode="sars">سرس (A)</button>
+                    <button data-mode="nars">نرس (2)</button>
+                    <button data-mode="as-nars">آس نرس (A2)</button>
                 </div>
             </div>
             <div id="kat-message" class="kat-message hidden">
@@ -467,16 +467,20 @@
         const suits = ['club', 'spade', 'heart', 'diamond'];
         const suitSymbols = { 'club': '♣️', 'spade': '♠️', 'heart': '♥️', 'diamond': '♦️' };
         const values = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
-        const sarsValueMap = { 'A': 14, 'K': 13, 'Q': 12, 'J': 11, '10': 10, '9': 9, '8': 8, '7': 7, '6': 6, '5': 5, '4': 4, '3': 3, '2': 2 };
-        const narsValueMap = { '2': 14, 'A': 13, 'K': 12, 'Q': 11, 'J': 10, '10': 9, '9': 8, '8': 7, '7': 6, '6': 5, '5': 4, '4': 3, '3': 2 };
-        const asNarsValueMap = { 'A': 14, '2': 13, 'K': 12, 'Q': 11, 'J': 10, '10': 9, '9': 8, '8': 7, '7': 6, '6': 5, '5': 4, '4': 3, '3': 2 };
         
+        // Define value maps for each game mode
+        const sarsValueMap = { 'A': 14, 'K': 13, 'Q': 12, 'J': 11, '10': 10, '9': 9, '8': 8, '7': 7, '6': 6, '5': 5, '4': 4, '3': 3, '2': 2 };
+        const narsValueMap = { '2': 14, '3': 13, '4': 12, '5': 11, '6': 10, '7': 9, '8': 8, '9': 7, '10': 6, 'J': 5, 'Q': 4, 'K': 3, 'A': 2 };
+        const asNarsValueMap = { 'A': 14, '2': 13, '3': 12, '4': 11, '5': 10, '6': 9, '7': 8, '8': 7, '9': 6, '10': 5, 'J': 4, 'Q': 3, 'K': 2 };
+        const normalValueMap = sarsValueMap; // Default for normal mode
+        const valueMaps = { sars: sarsValueMap, nars: narsValueMap, 'as-nars': asNarsValueMap };
+
         // Game state variables
         let deck = [];
         let players = [];
         let currentPlayerIndex = 0;
         let hokm = null;
-        let hokmMode = 'sars';
+        let hokmMode = null; // Can be 'sars', 'nars', 'as-nars' or a suit 'club', 'spade' etc.
         let hokmPlayerIndex = 0;
         let trick = [];
         let team1MainScore = 0;
@@ -526,7 +530,9 @@
             if (e.target.tagName === 'BUTTON') {
                 document.querySelectorAll('.hokm-modes button').forEach(btn => btn.classList.remove('active'));
                 e.target.classList.add('active');
-                hokmMode = e.target.dataset.mode;
+                const selectedMode = e.target.dataset.mode;
+                hokmMode = selectedMode;
+                console.log(`حالت انتخاب شد: ${selectedMode}`);
             }
         });
 
@@ -566,11 +572,10 @@
             }
         }
 
+        // Returns the numeric value of a card based on the current hokm mode
         function getCardNumericValue(card) {
-            if (hokmMode === 'sars') return sarsValueMap[card.value];
-            if (hokmMode === 'nars') return narsValueMap[card.value];
-            if (hokmMode === 'as-nars') return asNarsValueMap[card.value];
-            return sarsValueMap[card.value]; // Fallback
+            const currentValueMap = hokmMode ? valueMaps[hokmMode] : normalValueMap;
+            return currentValueMap[card.value];
         }
 
         // Function to create a full deck of cards
@@ -612,7 +617,7 @@
                 this.id = id;
                 this.hand = [];
                 this.handsWon = 0;
-                this.isHuman = isHuman; // Ensure isHuman is set
+                this.isHuman = isHuman;
             }
 
             addCard(card) {
@@ -623,8 +628,13 @@
             chooseCard(leadingCard, currentTrick) {
                 console.log(`AI - ${this.name} در حال انتخاب کارت...`);
                 const leadingSuit = leadingCard ? leadingCard.suit : null;
-                const sortedHand = this.hand.sort((a, b) => getCardNumericValue(a) - getCardNumericValue(b));
                 
+                // Get the correct value map based on the current game mode
+                const currentValueMap = hokmMode ? valueMaps[hokmMode] : normalValueMap;
+
+                // Sort hand based on the current game mode
+                const sortedHand = this.hand.sort((a, b) => currentValueMap[a.value] - currentValueMap[b.value]);
+
                 // Determine teammate's index
                 const myIndex = players.findIndex(p => p.id === this.id);
                 const teammateIndex = (myIndex + 2) % 4;
@@ -645,7 +655,7 @@
                         }
                         
                         // Otherwise, try to win the trick with the lowest possible card
-                        const winningCards = cardsOfLeadingSuit.filter(c => getCardNumericValue(c) > getCardNumericValue(currentTrickWinner.card));
+                        const winningCards = cardsOfLeadingSuit.filter(c => currentValueMap[c.value] > currentValueMap[currentTrickWinner.card.value]);
                         if (winningCards.length > 0) {
                             return winningCards[0];
                         }
@@ -655,7 +665,7 @@
                         const hokmCards = sortedHand.filter(c => c.suit === hokm);
                         
                         // Rule 2: If no leading suit, can play hokm to win
-                        if (hokmCards.length > 0) {
+                        if (hokm && hokmCards.length > 0) {
                             // Teammate is winning, play lowest non-hokm card (dump)
                             if (teammateIsWinning) {
                                 const nonHokmCards = sortedHand.filter(c => c.suit !== hokm);
@@ -666,7 +676,7 @@
                             if (currentTrickWinner.card.suit !== hokm) {
                                 return hokmCards[0];
                             } else {
-                                const winningHokmCards = hokmCards.filter(c => getCardNumericValue(c) > getCardNumericValue(currentTrickWinner.card));
+                                const winningHokmCards = hokmCards.filter(c => currentValueMap[c.value] > currentValueMap[currentTrickWinner.card.value]);
                                 if (winningHokmCards.length > 0) {
                                     return winningHokmCards[0];
                                 }
@@ -679,23 +689,23 @@
                     }
                 } else {
                     // Leading the trick - Play highest non-hokm, or highest overall
-                    const nonHokmCards = sortedHand.filter(c => c.suit !== hokm);
+                    const nonHokmCards = hokm ? sortedHand.filter(c => c.suit !== hokm) : sortedHand;
                     if (nonHokmCards.length > 0) {
                         return nonHokmCards[nonHokmCards.length - 1];
                     }
                     return sortedHand[sortedHand.length - 1];
                 }
             }
-
-            // Simple AI logic for choosing hokm and mode
+            
+            // AI logic for choosing hokm and mode
             chooseHokm() {
                 const modes = ['sars', 'nars', 'as-nars'];
-                const selectedMode = modes[Math.floor(Math.random() * modes.length)];
                 
                 const suitCounts = {};
                 this.hand.forEach(card => {
                     suitCounts[card.suit] = (suitCounts[card.suit] || 0) + 1;
                 });
+                
                 let bestSuit = null;
                 let maxCount = 0;
                 for (const suit in suitCounts) {
@@ -704,10 +714,15 @@
                         bestSuit = suit;
                     }
                 }
-                // Return a card from the hand with the best suit
-                return { card: this.hand.find(c => c.suit === bestSuit), mode: selectedMode };
+                
+                if (maxCount >= 5) {
+                    return { type: 'suit', value: bestSuit };
+                } else {
+                    const selectedMode = modes[Math.floor(Math.random() * modes.length)];
+                    return { type: 'mode', value: selectedMode };
+                }
             }
-            
+
             // AI logic to decide on "Bam" attempt (50/50 chance for now)
             decideBam() {
                 return Math.random() < 0.5;
@@ -751,6 +766,7 @@
             team1HandsWon = 0;
             team2HandsWon = 0;
             hokm = null;
+            hokmMode = null;
             isMakingHokm = true;
             isAttemptingBam = false;
             
@@ -783,31 +799,47 @@
             if (hokmPlayer.isHuman) {
                 renderHands(true);
                 hokmSelectionMessageEl.classList.remove('hidden');
-                showMessage('لطفاً یک کارت را برای تعیین حکم و یک حالت را انتخاب کنید.', 5000);
+                showMessage('لطفاً یک حکم یا یک حالت بازی را انتخاب کنید.', 5000);
                 
                 await new Promise(resolve => humanTurnResolver = resolve);
             } else {
-                const { card, mode } = hokmPlayer.chooseHokm();
-                setHokm(card.suit, mode);
-                console.log(`بازیکن ${hokmPlayer.name} حکم را ${suitSymbols[card.suit]} و حالت ${mode} انتخاب کرد.`);
+                const { type, value } = hokmPlayer.chooseHokm();
+                if (type === 'suit') {
+                    setHokm(value, null);
+                    console.log(`بازیکن ${hokmPlayer.name} حکم را ${suitSymbols[value]} انتخاب کرد.`);
+                } else {
+                    setHokm(null, value);
+                    console.log(`بازیکن ${hokmPlayer.name} حالت ${value} را انتخاب کرد.`);
+                }
                 hokmSelectionMessageEl.classList.add('hidden');
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
             dealRemainingCards();
         }
         
-        function selectHokm(card) {
+        function selectHokm(card = null, mode = null) {
             if (!isMakingHokm) return;
             
             isMakingHokm = false;
             hokmSelectionMessageEl.classList.add('hidden');
             
-            setHokm(card.suit, hokmMode);
-            console.log(`حکم انتخاب شد: ${suitSymbols[hokm]} با حالت ${hokmMode}`);
-            
+            if (card) {
+                setHokm(card.suit, null);
+                console.log(`حکم انتخاب شد: ${suitSymbols[hokm]}`);
+            } else {
+                setHokm(null, mode);
+                console.log(`حالت انتخاب شد: ${hokmMode}`);
+            }
+
             if (humanTurnResolver) {
                 humanTurnResolver();
             }
+        }
+
+        function setHokm(suit, mode) {
+            hokm = suit;
+            hokmMode = mode;
+            updateHakemUI();
         }
 
         function dealRemainingCards() {
@@ -831,27 +863,30 @@
             }, 1000);
         }
 
-        function setHokm(suit, mode) {
-            hokm = suit;
-            hokmMode = mode;
-            updateHakemUI();
-        }
-
         function updateHakemUI() {
             playerInfoElements.forEach(el => {
                 const nameEl = el.querySelector('.player-name');
-                const crownSpan = nameEl.querySelector('.hokm-display');
-                if (crownSpan) {
-                    crownSpan.remove();
+                const hokmDisplay = nameEl.querySelector('.hokm-display');
+                if (hokmDisplay) {
+                    hokmDisplay.remove();
                 }
             });
 
             const hokmPlayerInfo = playerInfoElements[hokmPlayerIndex];
             const nameEl = hokmPlayerInfo.querySelector('.player-name');
-            const crownSpan = document.createElement('span');
-            crownSpan.className = 'hokm-display';
-            crownSpan.textContent = ` 👑 (${suitSymbols[hokm]})`;
-            nameEl.appendChild(crownSpan);
+            const hokmDisplay = document.createElement('span');
+            hokmDisplay.className = 'hokm-display';
+            
+            if (hokm) {
+                hokmDisplay.textContent = ` 👑 (${suitSymbols[hokm]})`;
+            } else if (hokmMode === 'sars') {
+                hokmDisplay.textContent = ` 👑 (سرس)`;
+            } else if (hokmMode === 'nars') {
+                hokmDisplay.textContent = ` 👑 (نرس)`;
+            } else if (hokmMode === 'as-nars') {
+                hokmDisplay.textContent = ` 👑 (آس نرس)`;
+            }
+            nameEl.appendChild(hokmDisplay);
         }
 
         async function startNewTrick() {
@@ -862,6 +897,7 @@
             playerHands['player-left'].classList.remove('hidden');
             playerHands['player-right'].classList.remove('hidden');
             
+            renderHands(); // Re-render hand for sorting
             await playTrick();
         }
         
@@ -903,7 +939,7 @@
             let playedCard = player.playCard(card);
             
             if (!playedCard) {
-                console.error(`خطا: کارت ${card.value} ${suitSymbols[card.suit]} در دست بازیکن ${player.name} پیدا نشد.`);
+                console.error(`خطا: کارت ${card.value} ${suitSymbols[playedCard.suit]} در دست بازیکن ${player.name} پیدا نشد.`);
                 return;
             }
 
@@ -928,19 +964,20 @@
             if (currentTrick.length === 0) return null;
 
             const leadingSuit = currentTrick[0].card.suit;
+            const currentValueMap = hokmMode ? valueMaps[hokmMode] : normalValueMap;
             let winnerData = currentTrick[0];
             
             for (let i = 1; i < currentTrick.length; i++) {
                 const currentData = currentTrick[i];
                 
-                if (currentData.card.suit === hokm && winnerData.card.suit !== hokm) {
+                if (hokm && currentData.card.suit === hokm && winnerData.card.suit !== hokm) {
                     winnerData = currentData;
-                } else if (currentData.card.suit === hokm && winnerData.card.suit === hokm) {
-                    if (getCardNumericValue(currentData.card) > getCardNumericValue(winnerData.card)) {
+                } else if (hokm && currentData.card.suit === hokm && winnerData.card.suit === hokm) {
+                    if (currentValueMap[currentData.card.value] > currentValueMap[winnerData.card.value]) {
                         winnerData = currentData;
                     }
                 } else if (currentData.card.suit === leadingSuit && winnerData.card.suit === leadingSuit) {
-                    if (getCardNumericValue(currentData.card) > getCardNumericValue(winnerData.card)) {
+                    if (currentValueMap[currentData.card.value] > currentValueMap[winnerData.card.value]) {
                         winnerData = currentData;
                     }
                 }
@@ -977,10 +1014,8 @@
 
             if (isAttemptingBam) {
                 if (team1HandsWon === 13 || team2HandsWon === 13) {
-                    // Bam success
                     endRound();
                 } else if (team1HandsWon < 13 && team2HandsWon > 0) {
-                    // Bam failed
                     showMessage('تلاش برای بام ناموفق بود. دور به پایان می‌رسد.', 2000);
                     setTimeout(endRound, 2000);
                 } else {
@@ -989,11 +1024,9 @@
                 }
             } else if (team1HandsWon >= 7 || team2HandsWon >= 7) {
                 if (team1HandsWon === 7 && team2HandsWon === 0) {
-                    // Kat scenario
                     if (players[0].isHuman) {
                         katMessageEl.classList.remove('hidden');
                     } else {
-                        // AI decision for Bam
                         if (players[hokmPlayerIndex].decideBam()) {
                             isAttemptingBam = true;
                             showMessage('AI تصمیم به تلاش برای "بام" گرفت.');
@@ -1024,7 +1057,7 @@
 
             if (team1HandsWon === 13) { // Bam
                 winningTeam = 1;
-                scoreToAdd = 5; // Assuming 5 points for a successful Bam
+                scoreToAdd = 5;
                 team1MainScore += scoreToAdd;
                 showGameOverMessage('تبریک! تیم شما "بام" کرد و بازی را برد! 🥳');
                 isGameRunning = false;
@@ -1055,7 +1088,7 @@
             updateScores();
 
             if (isGameRunning) {
-                const winCondition = 7; // Main game win condition
+                const winCondition = 7;
                 if (team1MainScore >= winCondition || team2MainScore >= winCondition) {
                     if (Math.abs(team1MainScore - team2MainScore) >= 2) {
                          showGameOverMessage(`بازی به پایان رسید. تیم ${team1MainScore > team2MainScore ? 'شما' : 'حریف'} برنده شد!`);
@@ -1064,10 +1097,8 @@
                 }
 
                 if ((winningTeam === 1 && isHakemTeam1) || (winningTeam === 2 && !isHakemTeam1)) {
-                    // Hakem team won the round, Hakem stays
                     console.log("تیم حاکم برنده شد. حاکم ثابت می‌ماند.");
                 } else {
-                    // Other team won, Hakem rotates
                     hokmPlayerIndex = (hokmPlayerIndex + 1) % 4;
                     console.log("تیم حاکم باخت. حاکم به نفر بعدی منتقل می‌شود.");
                 }
@@ -1090,13 +1121,19 @@
             const humanPlayerHasLeadingSuit = players[0].hand.some(c => c.suit === leadingCard?.suit);
             
             allCards.forEach(cardEl => {
-                if (leadingCard && humanPlayerHasLeadingSuit) {
-                    if (cardEl.dataset.suit !== leadingCard.suit) {
-                       cardEl.classList.add('disabled');
+                const card = players[0].hand.find(c => c.suit === cardEl.dataset.suit && c.value === cardEl.dataset.value);
+                
+                if (hokm && hokmMode === null) { // Normal mode
+                    if (leadingCard && humanPlayerHasLeadingSuit) {
+                        if (card.suit !== leadingSuit) {
+                            cardEl.classList.add('disabled');
+                        } else {
+                            cardEl.classList.remove('disabled');
+                        }
                     } else {
-                       cardEl.classList.remove('disabled');
+                        cardEl.classList.remove('disabled');
                     }
-                } else {
+                } else { // Sars, Nars, As Nars modes
                     cardEl.classList.remove('disabled');
                 }
             });
@@ -1108,25 +1145,40 @@
             handEl.innerHTML = '';
             
             humanPlayer.hand.sort((a, b) => {
-                const aValue = getCardNumericValue(a);
-                const bValue = getCardNumericValue(b);
+                const suitOrder = { 'heart': 1, 'diamond': 2, 'spade': 3, 'club': 4 };
+                const aSuitOrder = suitOrder[a.suit];
+                const bSuitOrder = suitOrder[b.suit];
 
-                if (a.suit === hokm && b.suit !== hokm) return -1;
-                if (a.suit !== hokm && b.suit === hokm) return 1;
+                const currentValueMap = hokmMode ? valueMaps[hokmMode] : normalValueMap;
                 
-                const suitSortOrder = ['heart', 'club', 'diamond', 'spade'];
-                const aIndex = suitSortOrder.indexOf(a.suit);
-                const bIndex = suitSortOrder.indexOf(b.suit);
-                if (aIndex !== bIndex) return aIndex - bIndex;
-                
-                return bValue - aValue;
+                if (hokm) { // Normal mode with a suit hokm
+                    const aIsHokm = a.suit === hokm;
+                    const bIsHokm = b.suit === hokm;
+                    if (aIsHokm && !bIsHokm) return -1;
+                    if (!aIsHokm && bIsHokm) return 1;
+
+                    if (aSuitOrder !== bSuitOrder) return aSuitOrder - bSuitOrder;
+
+                    return currentValueMap[b.value] - currentValueMap[a.value];
+                } else { // Sars/Nars/As Nars mode
+                     if (aSuitOrder !== bSuitOrder) return aSuitOrder - bSuitOrder;
+                     return currentValueMap[b.value] - currentValueMap[a.value];
+                }
             });
 
             humanPlayer.hand.forEach(card => {
                 const cardEl = card.createElement();
                 if (isHokmSelection) {
+                    const modeButtons = document.querySelectorAll('.hokm-modes button');
                     cardEl.addEventListener('click', () => {
-                        selectHokm(card);
+                        modeButtons.forEach(btn => btn.classList.add('disabled'));
+                        cardEl.classList.add('active-selection');
+                        selectHokm(card, null);
+                    });
+                    modeButtons.forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            selectHokm(null, btn.dataset.mode);
+                        });
                     });
                 } else {
                     cardEl.addEventListener('click', () => {
@@ -1134,9 +1186,11 @@
                         const leadingSuit = leadingCard ? leadingCard.suit : null;
                         const hasLeadingSuit = players[0].hand.some(c => c.suit === leadingSuit);
                         
-                        if (leadingSuit && card.suit !== leadingSuit && hasLeadingSuit) {
-                            showMessage(`شما باید کارت از خال ${suitSymbols[leadingSuit]} بازی کنید.`);
-                            return;
+                        if (hokm && hokmMode === null) { // Normal mode
+                            if (leadingCard && card.suit !== leadingSuit && hasLeadingSuit) {
+                                showMessage(`شما باید کارت از خال ${suitSymbols[leadingSuit]} بازی کنید.`);
+                                return;
+                            }
                         }
                         
                         if (humanTurnResolver) {
