@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>بازی حکم چهار نفره</title>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #0d1a26;
+            color: #e2e8f0;
+            font-family: 'Vazirmatn', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            background-image: linear-gradient(135deg, #1f2937 0%, #0d1a26 100%);
+        }
+
+        .game-container {
+            display: grid;
+            grid-template-areas:
+                "top-player"
+                "center-area"
+                "bottom-player";
+            grid-template-rows: 1fr 2fr 1fr;
+            width: 100vw;
+            height: 100vh;
+            max-width: 1200px;
+            max-height: 800px;
+            padding: 1rem;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .player-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            animation: fadeIn 1s ease-in-out;
+        }
+
+        .player-area.top { grid-area: top-player; }
+        .player-area.bottom { grid-area: bottom-player; }
+        .player-area.right, .player-area.left {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 10;
+        }
+        .player-area.right { right: 0.5rem; }
+        .player-area.left { left: 0.5rem; }
+
+        .player-info {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            background-color: rgba(0, 0, 0, 0.4);
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            transition: all 0.3s ease;
+        }
+        
+        .player-info.current-turn {
+            border-color: #f6e05e;
+            box-shadow: 0 0 15px rgba(246, 224, 94, 0.6);
+            transform: scale(1.05);
+            animation: pulse 1.5s infinite;
+        }
+
+        .player-name {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #cbd5e1;
+        }
+
+        .player-name .hokm-display {
+            font-size: 0.9em;
+            color: #f6e05e;
+        }
+        
+        .score-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            padding: 0.75rem 1.5rem;
+            background-color: rgba(0, 0, 0, 0.4);
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            animation: slideDown 1s ease-in-out;
+            z-index: 20;
+        }
+        
+        .score-container .scores {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .score-container .score-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .score-container .score-label {
+            font-size: 1rem;
+            font-weight: bold;
+            color: #cbd5e1;
+        }
+
+        .score-container .score-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #4ade80;
+        }
+
+        .card-hand {
+            display: flex;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            max-width: 100%;
+            padding: 0.5rem;
+            border-radius: 10px;
+            background-color: rgba(0, 0, 0, 0.2);
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+            gap: 5px;
+            animation: slideIn 1s ease-in-out;
+        }
+        
+        .hokm-selection-message, .kat-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            font-size: 1.5rem;
+            text-align: center;
+            z-index: 100;
+            animation: fadeIn 0.5s ease-in-out;
+            border: 2px solid #f6e05e;
+            box-shadow: 0 0 20px rgba(246, 224, 94, 0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .kat-message {
+            background-color: rgba(144, 255, 144, 0.7);
+            color: #0d1a26;
+            border-color: #4ade80;
+            box-shadow: 0 0 20px rgba(74, 222, 128, 0.8);
+        }
+
+        .hokm-modes, .kat-options {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .hokm-modes button, .kat-options button {
+            padding: 0.5rem 1rem;
+            font-size: 1rem;
+            background-color: #4a5568;
+            border: 1px solid #718096;
+            color: white;
+            border-radius: 6px;
+        }
+        
+        .hokm-modes button.active {
+            background-color: #4299e1;
+            border-color: #4299e1;
+        }
+        
+        .kat-options button.yes { background-color: #4ade80; border-color: #3b82f6; }
+        .kat-options button.no { background-color: #f87171; border-color: #ef4444; }
+
+
+        .card {
+            background-color: #f7fafc;
+            border: 2px solid #a0aec0;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            width: 60px;
+            height: 90px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+            flex-shrink: 0;
+        }
+        
+        .card.played {
+            pointer-events: none;
+            cursor: default;
+            opacity: 0.7;
+        }
+        
+        .card.disabled {
+            filter: grayscale(80%);
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .card.club, .card.spade { color: #2d3748; }
+        .card.heart, .card.diamond { color: #c53030; }
+        
+        .card:hover:not(.played):not(.disabled) {
+            transform: translateY(-10px) scale(1.1);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        .center-area {
+            grid-area: center-area;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .current-trick {
+            display: grid;
+            grid-template-areas:
+                ". top ."
+                "left center right"
+                ". bottom .";
+            width: 250px;
+            height: 250px;
+            position: relative;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .trick-card {
+            position: absolute;
+            transition: all 0.5s ease-in-out;
+            animation: cardDeal 0.5s ease-out;
+        }
+
+        .trick-card.top { top: 0; left: 50%; transform: translateX(-50%); }
+        .trick-card.right { top: 50%; right: 0; transform: translateY(-50%); }
+        .trick-card.bottom { bottom: 0; left: 50%; transform: translateX(-50%); }
+        .trick-card.left { top: 50%; left: 0; transform: translateY(-50%); }
+
+        .status-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            font-size: 1.5rem;
+            text-align: center;
+            z-index: 10;
+            display: none;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        .game-over-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            padding: 2rem 3rem;
+            border-radius: 15px;
+            font-size: 2.5rem;
+            text-align: center;
+            z-index: 20;
+            display: none;
+            animation: zoomIn 0.5s ease-out;
+            border: 3px solid #f6e05e;
+            box-shadow: 0 0 30px rgba(246, 224, 94, 0.8);
+        }
+
+        .game-controls {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            display: flex;
+            gap: 1rem;
+            z-index: 20;
+        }
+
+        button {
+            background-color: #4299e1;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        button:hover {
+            background-color: #3182ce;
+        }
+        
+        button:active {
+            transform: scale(0.95);
+        }
+        
+        .card-value {
+            font-size: 1.5rem;
+        }
+
+        .card-suit-symbol {
+            font-size: 2rem;
+            line-height: 1;
+        }
+        
+        .hidden { display: none !important; }
+
+        @media (max-width: 768px) {
+            .game-container {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: space-around;
+            }
+            .player-area.right, .player-area.left {
+                position: relative;
+                top: auto;
+                left: auto;
+                transform: none;
+                width: 100%;
+                margin: 1rem 0;
+            }
+            .player-area.right .card-hand, .player-area.left .card-hand {
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            .card-hand {
+                justify-content: center;
+            }
+            .card {
+                width: 45px;
+                height: 70px;
+                font-size: 0.8rem;
+            }
+            .card-value { font-size: 1rem; }
+            .card-suit-symbol { font-size: 1.5rem; }
+            .center-area {
+                width: 100%;
+                height: auto;
+                min-height: 150px;
+            }
+            .current-trick {
+                width: 200px;
+                height: 200px;
+            }
+            .player-info {
+                padding: 0.5rem;
+                font-size: 0.9rem;
+            }
+            .player-name { font-size: 1rem; }
+            .score-container, .game-controls {
+                position: relative;
+                top: auto;
+                left: auto;
+                right: auto;
+                margin-top: 1rem;
+                flex-direction: row;
+                justify-content: space-around;
+                width: 100%;
+                box-shadow: none;
+            }
+            .score-container .scores {
+                flex-direction: row;
+                gap: 1rem;
+            }
+            .hokm-selection-message, .kat-message, .status-message {
+                font-size: 1rem;
+                padding: 1rem;
+            }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideDown {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes slideIn {
+            from { transform: translateX(20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 5px rgba(246, 224, 94, 0.6), 0 0 10px rgba(246, 224, 94, 0.4); }
+            50% { box-shadow: 0 0 15px rgba(246, 224, 94, 0.8), 0 0 25px rgba(246, 224, 94, 0.6); }
+            100% { box-shadow: 0 0 5px rgba(246, 224, 94, 0.6), 0 0 10px rgba(246, 224, 94, 0.4); }
+        }
+        @keyframes zoomIn {
+            from { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <!-- AI Player 1 (Top) -->
+        <div id="player-top" class="player-area top">
+            <div class="player-info">
+                <span class="player-name">بازیکن بالا</span>
+            </div>
+            <div class="card-hand hidden"></div>
+        </div>
+
+        <!-- AI Player 2 (Right) -->
+        <div id="player-right" class="player-area right">
+            <div class="player-info">
+                <span class="player-name">بازیکن راست</span>
+            </div>
+            <div class="card-hand hidden"></div>
+        </div>
+
+        <!-- AI Player 3 (Left) -->
+        <div id="player-left" class="player-area left">
+            <div class="player-info">
+                <span class="player-name">بازیکن چپ</span>
+            </div>
+            <div class="card-hand hidden"></div>
+        </div>
+
+        <!-- Human Player (Bottom) -->
+        <div id="player-bottom" class="player-area bottom">
+            <div class="player-info">
+                <span class="player-name">شما</span>
+            </div>
+            <div class="card-hand" id="human-hand"></div>
+        </div>
+
+        <!-- Center Game Area -->
+        <div class="center-area">
+            <div id="trick-area" class="current-trick">
+                <div id="trick-top" class="trick-card top"></div>
+                <div id="trick-right" class="trick-card right"></div>
+                <div id="trick-bottom" class="trick-card bottom"></div>
+                <div id="trick-left" class="trick-card left"></div>
+            </div>
+            <div id="status-message" class="status-message hidden"></div>
+            <div id="game-over-message" class="game-over-message hidden"></div>
+            <div id="hokm-selection-message" class="hokm-selection-message">
+                <span id="hokm-instruction">لطفاً یک حکم یا یک حالت بازی را انتخاب کنید.</span>
+                <div class="hokm-modes" id="hokm-mode-selector">
+                    <button data-mode="sars">سرس (A)</button>
+                    <button data-mode="nars">نرس (2)</button>
+                    <button data-mode="as-nars">آس نرس (A2)</button>
+                </div>
+            </div>
+            <div id="kat-message" class="kat-message hidden">
+                <span>تیم شما "کت" کرد! آیا برای "بام" تلاش می‌کنید؟</span>
+                <div class="kat-options">
+                    <button id="bam-yes" class="yes">بله</button>
+                    <button id="bam-no" class="no">خیر</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Score Display -->
+        <div class="score-container">
+            <div class="score-section">
+                <span class="score-label">امتیاز اصلی</span>
+                <div class="scores">
+                    <span>شما: <span id="team-1-main-score">۰</span></span>
+                    <span>حریف: <span id="team-2-main-score">۰</span></span>
+                </div>
+            </div>
+            <div class="score-section">
+                <span class="score-label">دست‌های این دور</span>
+                <div class="scores">
+                    <span>شما: <span id="team-1-hands-won">۰</span></span>
+                    <span>حریف: <span id="team-2-hands-won">۰</span></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-controls">
+            <button id="new-game-btn">بازی جدید</button>
+        </div>
+    </div>
+
+    <script>
+        // Constants for suits and values
+        const suits = ['club', 'spade', 'heart', 'diamond'];
+        const suitSymbols = { 'club': '♣️', 'spade': '♠️', 'heart': '♥️', 'diamond': '♦️' };
+        const values = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
+        
+        // Define value maps for each game mode
+        const sarsValueMap = { 'A': 14, 'K': 13, 'Q': 12, 'J': 11, '10': 10, '9': 9, '8': 8, '7': 7, '6': 6, '5': 5, '4': 4, '3': 3, '2': 2 };
+        const narsValueMap = { '2': 14, '3': 13, '4': 12, '5': 11, '6': 10, '7': 9, '8': 8, '9': 7, '10': 6, 'J': 5, 'Q': 4, 'K': 3, 'A': 2 };
+        const asNarsValueMap = { 'A': 14, '2': 13, '3': 12, '4': 11, '5': 10, '6': 9, '7': 8, '9': 7, '10': 6, 'J': 5, 'Q': 4, 'K': 3, 'A': 2 };
+        const normalValueMap = sarsValueMap; // Default for normal mode
+        const valueMaps = { sars: sarsValueMap, nars: narsValueMap, 'as-nars': asNarsValueMap };
+
+        // Game state variables
+        let deck = [];
+        let players = [];
+        let currentPlayerIndex = 0;
+        let hokm = null;
+        let hokmMode = null; // Can be 'sars', 'nars', 'as-nars' or a suit 'club', 'spade' etc.
+        let hokmPlayerIndex = 0;
+        let trick = [];
+        let team1MainScore = 0;
+        let team2MainScore = 0;
+        let team1HandsWon = 0;
+        let team2HandsWon = 0;
+        let isGameRunning = false;
+        let isMakingHokm = false;
+        let isAttemptingBam = false;
+        let humanTurnResolver = null;
+        
+        // Player elements and hands
+        const playerHands = {
+            'player-bottom': document.getElementById('human-hand'),
+            'player-top': document.getElementById('player-top').querySelector('.card-hand'),
+            'player-right': document.getElementById('player-right').querySelector('.card-hand'),
+            'player-left': document.getElementById('player-left').querySelector('.card-hand'),
+        };
+        const playerNames = ['شما', 'بازیکن راست', 'بازیکن بالا', 'بازیکن چپ'];
+        const playerElements = ['player-bottom', 'player-right', 'player-top', 'player-left'];
+        const playerInfoElements = playerElements.map(id => document.getElementById(id).querySelector('.player-info'));
+        
+        const statusMessageEl = document.getElementById('status-message');
+        const gameOverMessageEl = document.getElementById('game-over-message');
+        const hokmSelectionMessageEl = document.getElementById('hokm-selection-message');
+        const hokmModeSelector = document.getElementById('hokm-mode-selector');
+        const katMessageEl = document.getElementById('kat-message');
+        const bamYesBtn = document.getElementById('bam-yes');
+        const bamNoBtn = document.getElementById('bam-no');
+        const newGameBtn = document.getElementById('new-game-btn');
+
+        // New score display elements
+        const team1MainScoreEl = document.getElementById('team-1-main-score');
+        const team2MainScoreEl = document.getElementById('team-2-main-score');
+        const team1HandsWonEl = document.getElementById('team-1-hands-won');
+        const team2HandsWonEl = document.getElementById('team-2-hands-won');
+        
+        // Event listener for starting a new game
+        newGameBtn.addEventListener('click', () => {
+            console.clear();
+            console.log("--- شروع بازی جدید ---");
+            startNewGame();
+        });
+
+        // Add event listener for Hokm mode selection
+        hokmModeSelector.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                document.querySelectorAll('.hokm-modes button').forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+                const selectedMode = e.target.dataset.mode;
+                hokmMode = selectedMode;
+                console.log(`حالت انتخاب شد: ${selectedMode}`);
+            }
+        });
+
+        // Event listeners for Bam decision
+        bamYesBtn.addEventListener('click', () => {
+            isAttemptingBam = true;
+            katMessageEl.classList.add('hidden');
+            showMessage('شما تصمیم به تلاش برای "بام" گرفتید.');
+            setTimeout(startNewTrick, 1000);
+        });
+
+        bamNoBtn.addEventListener('click', () => {
+            isAttemptingBam = false;
+            katMessageEl.classList.add('hidden');
+            endRound();
+        });
+
+        // Card class to manage card properties
+        class Card {
+            constructor(suit, value) {
+                this.suit = suit;
+                this.value = value;
+                this.symbol = suitSymbols[suit];
+                this.color = ['heart', 'diamond'].includes(suit) ? 'red' : 'black';
+            }
+            
+            // Method to create the HTML element for the card
+            createElement() {
+                const cardEl = document.createElement('div');
+                cardEl.className = `card ${this.suit}`;
+                cardEl.setAttribute('data-suit', this.suit);
+                cardEl.setAttribute('data-value', this.value);
+                cardEl.innerHTML = `
+                    <div class="card-value">${this.value}</div>
+                    <div class="card-suit-symbol">${this.symbol}</div>
+                `;
+                return cardEl;
+            }
+        }
+
+        // Returns the numeric value of a card based on the current hokm mode
+        function getCardNumericValue(card) {
+            const currentValueMap = hokmMode ? valueMaps[hokmMode] : normalValueMap;
+            return currentValueMap[card.value];
+        }
+
+        // Function to create a full deck of cards
+        function createDeck() {
+            deck = [];
+            for (const suit of suits) {
+                for (const value of values) {
+                    deck.push(new Card(suit, value));
+                }
+            }
+        }
+
+        // Function to shuffle the deck using Fisher-Yates algorithm
+        function shuffleDeck() {
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+        }
+        
+        // Function to show a temporary message
+        function showMessage(msg, duration = 1000) {
+            statusMessageEl.textContent = msg;
+            statusMessageEl.classList.remove('hidden');
+            setTimeout(() => {
+                statusMessageEl.classList.add('hidden');
+            }, duration);
+        }
+
+        function showGameOverMessage(msg) {
+            gameOverMessageEl.textContent = msg;
+            gameOverMessageEl.classList.remove('hidden');
+        }
+
+        // Player class
+        class Player {
+            constructor(name, id, isHuman = false) {
+                this.name = name;
+                this.id = id;
+                this.hand = [];
+                this.handsWon = 0;
+                this.isHuman = isHuman;
+            }
+
+            addCard(card) {
+                this.hand.push(card);
+            }
+
+            // AI logic to choose the best card to play
+            chooseCard(leadingCard, currentTrick) {
+                console.log(`AI - ${this.name} در حال انتخاب کارت...`);
+                const leadingSuit = leadingCard ? leadingCard.suit : null;
+                
+                // Get the correct value map based on the current game mode
+                const currentValueMap = hokmMode ? valueMaps[hokmMode] : normalValueMap;
+
+                // Sort hand based on the current game mode
+                const sortedHand = this.hand.sort((a, b) => currentValueMap[a.value] - currentValueMap[b.value]);
+
+                // Determine teammate's index
+                const myIndex = players.findIndex(p => p.id === this.id);
+                const teammateIndex = (myIndex + 2) % 4;
+                
+                // Find current trick winner
+                const currentTrickWinner = findWinnerDataInTrick(currentTrick);
+                const teammateIsWinning = currentTrickWinner && currentTrickWinner.playerIndex === teammateIndex;
+                
+                // Filter cards based on leading suit
+                const cardsOfLeadingSuit = sortedHand.filter(c => c.suit === leadingSuit);
+                
+                if (leadingCard) {
+                    // Rule 1: Must follow suit if possible
+                    if (cardsOfLeadingSuit.length > 0) {
+                        // Teammate is winning, play lowest card of the leading suit
+                        if (teammateIsWinning) {
+                            return cardsOfLeadingSuit[0];
+                        }
+                        
+                        // Otherwise, try to win the trick with the lowest possible card
+                        const winningCards = cardsOfLeadingSuit.filter(c => currentValueMap[c.value] > currentValueMap[currentTrickWinner.card.value]);
+                        if (winningCards.length > 0) {
+                            return winningCards[0];
+                        }
+                        return cardsOfLeadingSuit[0];
+                    } else {
+                        // No leading suit cards
+                        const hokmCards = sortedHand.filter(c => c.suit === hokm);
+                        
+                        // Rule 2: If no leading suit, can play hokm to win
+                        if (hokm && hokmCards.length > 0) {
+                            // Teammate is winning, play lowest non-hokm card (dump)
+                            if (teammateIsWinning) {
+                                const nonHokmCards = sortedHand.filter(c => c.suit !== hokm);
+                                return nonHokmCards.length > 0 ? nonHokmCards[0] : hokmCards[0];
+                            }
+                            
+                            // Otherwise, try to trump or over-trump
+                            if (currentTrickWinner.card.suit !== hokm) {
+                                return hokmCards[0];
+                            } else {
+                                const winningHokmCards = hokmCards.filter(c => currentValueMap[c.value] > currentValueMap[currentTrickWinner.card.value]);
+                                if (winningHokmCards.length > 0) {
+                                    return winningHokmCards[0];
+                                }
+                                return hokmCards[0];
+                            }
+                        } else {
+                            // Rule 3: No leading suit, no hokm. Dump lowest card.
+                            return sortedHand[0];
+                        }
+                    }
+                } else {
+                    // Leading the trick - Play highest non-hokm, or highest overall
+                    const nonHokmCards = hokm ? sortedHand.filter(c => c.suit !== hokm) : sortedHand;
+                    if (nonHokmCards.length > 0) {
+                        return nonHokmCards[nonHokmCards.length - 1];
+                    }
+                    return sortedHand[sortedHand.length - 1];
+                }
+            }
+            
+            // AI logic for choosing hokm and mode
+            chooseHokm() {
+                const modes = ['sars', 'nars', 'as-nars'];
+                
+                const suitCounts = {};
+                this.hand.forEach(card => {
+                    suitCounts[card.suit] = (suitCounts[card.suit] || 0) + 1;
+                });
+                
+                let bestSuit = null;
+                let maxCount = 0;
+                for (const suit in suitCounts) {
+                    if (suitCounts[suit] > maxCount) {
+                        maxCount = suitCounts[suit];
+                        bestSuit = suit;
+                    }
+                }
+                
+                if (maxCount >= 5) {
+                    return { type: 'suit', value: bestSuit };
+                } else {
+                    const selectedMode = modes[Math.floor(Math.random() * modes.length)];
+                    return { type: 'mode', value: selectedMode };
+                }
+            }
+
+            // AI logic to decide on "Bam" attempt (50/50 chance for now)
+            decideBam() {
+                return Math.random() < 0.5;
+            }
+
+            // Function to play a card from the hand
+            playCard(card) {
+                const index = this.hand.findIndex(c => c.suit === card.suit && c.value === card.value);
+                if (index === -1) {
+                    console.error(`خطا: کارت ${card.value} ${suitSymbols[card.suit]} در دست بازیکن ${this.name} پیدا نشد.`);
+                    return null;
+                }
+                return this.hand.splice(index, 1)[0];
+            }
+        }
+        
+        // Function to create player objects
+        function createPlayers() {
+            players = [
+                new Player('شما', 'player-bottom', true),
+                new Player('بازیکن راست', 'player-right'),
+                new Player('بازیکن بالا', 'player-top'),
+                new Player('بازیکن چپ', 'player-left')
+            ];
+            console.log("بازیکنان ساخته شدند.");
+        }
+
+        // تابع اصلی برای شروع یک بازی کاملا جدید
+        function startNewGame() {
+            isGameRunning = true;
+            createPlayers();
+            team1MainScore = 0;
+            team2MainScore = 0;
+            hokmPlayerIndex = 0; // شروع از بازیکن اول
+            startNewRound();
+        }
+
+        // تابع برای شروع یک دور جدید در طول بازی
+        async function startNewRound() {
+            console.log("--- شروع دور جدید ---");
+            team1HandsWon = 0;
+            team2HandsWon = 0;
+            hokm = null;
+            hokmMode = null;
+            isMakingHokm = true;
+            isAttemptingBam = false;
+            
+            updateScores();
+
+            for (const player in playerHands) {
+                playerHands[player].innerHTML = '';
+                if (player !== 'player-bottom') {
+                    playerHands[player].classList.add('hidden');
+                }
+            }
+            document.querySelectorAll('.trick-card').forEach(el => el.innerHTML = '');
+            players.forEach(p => p.hand = []);
+
+            createDeck();
+            shuffleDeck();
+            
+            await dealInitialCardsAndSelectHokm();
+        }
+
+        async function dealInitialCardsAndSelectHokm() {
+            for (let i = 0; i < 5; i++) {
+                for (let j = 0; j < players.length; j++) {
+                    players[j].addCard(deck.shift());
+                }
+            }
+            
+            const hokmPlayer = players[hokmPlayerIndex];
+
+            if (hokmPlayer.isHuman) {
+                renderHands(true);
+                hokmSelectionMessageEl.classList.remove('hidden');
+                showMessage('لطفاً یک حکم یا یک حالت بازی را انتخاب کنید.', 5000);
+                
+                await new Promise(resolve => humanTurnResolver = resolve);
+            } else {
+                const { type, value } = hokmPlayer.chooseHokm();
+                if (type === 'suit') {
+                    setHokm(value, null);
+                    console.log(`بازیکن ${hokmPlayer.name} حکم را ${suitSymbols[value]} انتخاب کرد.`);
+                } else {
+                    setHokm(null, value);
+                    console.log(`بازیکن ${hokmPlayer.name} حالت ${value} را انتخاب کرد.`);
+                }
+                hokmSelectionMessageEl.classList.add('hidden');
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            dealRemainingCards();
+        }
+        
+        function selectHokm(card = null, mode = null) {
+            if (!isMakingHokm) return;
+            
+            isMakingHokm = false;
+            hokmSelectionMessageEl.classList.add('hidden');
+            
+            if (card) {
+                setHokm(card.suit, null);
+                console.log(`حکم انتخاب شد: ${suitSymbols[hokm]}`);
+            } else {
+                setHokm(null, mode);
+                console.log(`حالت انتخاب شد: ${hokmMode}`);
+            }
+
+            if (humanTurnResolver) {
+                humanTurnResolver();
+            }
+        }
+
+        function setHokm(suit, mode) {
+            hokm = suit;
+            hokmMode = mode;
+            updateHakemUI();
+        }
+
+        function dealRemainingCards() {
+            const allPlayers = players.slice(0);
+            
+            while (deck.length > 0) {
+                for (let j = 0; j < allPlayers.length; j++) {
+                    if (deck.length > 0) {
+                       allPlayers[j].addCard(deck.shift());
+                    }
+                }
+            }
+
+            renderHands();
+            
+            currentPlayerIndex = hokmPlayerIndex;
+            console.log("کارت های باقی مانده پخش شدند.");
+            
+            setTimeout(() => {
+                startNewTrick();
+            }, 1000);
+        }
+
+        function updateHakemUI() {
+            playerInfoElements.forEach(el => {
+                const nameEl = el.querySelector('.player-name');
+                const hokmDisplay = nameEl.querySelector('.hokm-display');
+                if (hokmDisplay) {
+                    hokmDisplay.remove();
+                }
+            });
+
+            const hokmPlayerInfo = playerInfoElements[hokmPlayerIndex];
+            const nameEl = hokmPlayerInfo.querySelector('.player-name');
+            const hokmDisplay = document.createElement('span');
+            hokmDisplay.className = 'hokm-display';
+            
+            if (hokm) {
+                hokmDisplay.textContent = ` 👑 (${suitSymbols[hokm]})`;
+            } else if (hokmMode === 'sars') {
+                hokmDisplay.textContent = ` 👑 (سرس)`;
+            } else if (hokmMode === 'nars') {
+                hokmDisplay.textContent = ` 👑 (نرس)`;
+            } else if (hokmMode === 'as-nars') {
+                hokmDisplay.textContent = ` 👑 (آس نرس)`;
+            }
+            nameEl.appendChild(hokmDisplay);
+        }
+
+        async function startNewTrick() {
+            console.log("--- دست جدید شروع شد ---");
+            trick = [];
+            document.querySelectorAll('.trick-card').forEach(el => {
+                el.innerHTML = '';
+            });
+            playerHands['player-top'].classList.remove('hidden');
+            playerHands['player-left'].classList.remove('hidden');
+            playerHands['player-right'].classList.remove('hidden');
+            
+            renderHands(); // Re-render hand for sorting
+            await playTrick();
+        }
+        
+        async function playTrick() {
+            for (let i = 0; i < 4; i++) {
+                const playerIndex = (currentPlayerIndex + i) % 4;
+                const player = players[playerIndex];
+
+                playerInfoElements.forEach(el => el.classList.remove('current-turn'));
+                playerInfoElements[playerIndex].classList.add('current-turn');
+                
+                let cardToPlay;
+                const leadingCard = trick.length > 0 ? trick[0].card : null;
+                const leadingSuit = leadingCard ? leadingCard.suit : null;
+
+
+                if (player.isHuman) {
+                    showMessage('نوبت شماست، لطفاً کارت خود را بازی کنید.', 2000);
+                    toggleCardClicks(leadingSuit);
+                    
+                    cardToPlay = await new Promise(resolve => {
+                        humanTurnResolver = resolve;
+                    });
+                    
+                    toggleCardClicks(null);
+                } else {
+                    showMessage(`نوبت ${player.name} است.`);
+                    cardToPlay = player.chooseCard(leadingCard, trick);
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate thinking time
+                }
+                
+                playCardOnTable(playerIndex, cardToPlay);
+            }
+
+            evaluateTrick();
+        }
+        
+        function playCardOnTable(playerIndex, card) {
+            const player = players[playerIndex];
+            
+            let playedCard = player.playCard(card);
+            
+            if (!playedCard) {
+                console.error(`خطا: کارت ${card.value} ${suitSymbols[playedCard.suit]} در دست بازیکن ${player.name} پیدا نشد.`);
+                return;
+            }
+
+            trick.push({
+                playerIndex: playerIndex,
+                card: playedCard
+            });
+            
+            console.log(`${player.name} کارت ${playedCard.value} ${suitSymbols[playedCard.suit]} را بازی کرد.`);
+            
+            const cardElement = playedCard.createElement();
+            const playerPos = playerElements[playerIndex];
+            const trickArea = document.getElementById(`trick-${playerPos.split('-')[1]}`);
+            trickArea.innerHTML = '';
+            trickArea.appendChild(cardElement);
+
+            const handCard = document.querySelector(`#${player.id} .card[data-suit="${playedCard.suit}"][data-value="${playedCard.value}"]`);
+            if (handCard) handCard.remove();
+        }
+
+        function findWinnerDataInTrick(currentTrick) {
+            if (currentTrick.length === 0) return null;
+
+            const leadingSuit = currentTrick[0].card.suit;
+            const currentValueMap = hokmMode ? valueMaps[hokmMode] : normalValueMap;
+            let winnerData = currentTrick[0];
+            
+            for (let i = 1; i < currentTrick.length; i++) {
+                const currentData = currentTrick[i];
+                
+                if (hokm && currentData.card.suit === hokm && winnerData.card.suit !== hokm) {
+                    winnerData = currentData;
+                } else if (hokm && currentData.card.suit === hokm && winnerData.card.suit === hokm) {
+                    if (currentValueMap[currentData.card.value] > currentValueMap[winnerData.card.value]) {
+                        winnerData = currentData;
+                    }
+                } else if (currentData.card.suit === leadingSuit && winnerData.card.suit === leadingSuit) {
+                    if (currentValueMap[currentData.card.value] > currentValueMap[winnerData.card.value]) {
+                        winnerData = currentData;
+                    }
+                }
+            }
+            return winnerData;
+        }
+
+        async function evaluateTrick() {
+            if (trick.length !== 4) {
+                return;
+            }
+
+            const winnerData = findWinnerDataInTrick(trick);
+            if (!winnerData) {
+                console.error("خطا: برنده دست پیدا نشد.");
+                return;
+            }
+            const winnerIndex = winnerData.playerIndex;
+            const winnerPlayer = players[winnerIndex];
+            
+            const winnerTeamIndex = (winnerIndex === 0 || winnerIndex === 2) ? 1 : 2;
+            if (winnerTeamIndex === 1) {
+                team1HandsWon++;
+            } else {
+                team2HandsWon++;
+            }
+            
+            console.log(`برنده دست: ${winnerPlayer.name}`);
+            console.log(`تیم شما: ${team1HandsWon} دست، تیم حریف: ${team2HandsWon} دست`);
+            
+            showMessage(`دست برنده شد: ${winnerPlayer.name}`, 1000);
+            updateScores();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            if (isAttemptingBam) {
+                if (team1HandsWon === 13 || team2HandsWon === 13) {
+                    endRound();
+                } else if (team1HandsWon < 13 && team2HandsWon > 0) {
+                    showMessage('تلاش برای بام ناموفق بود. دور به پایان می‌رسد.', 2000);
+                    setTimeout(endRound, 2000);
+                } else {
+                    currentPlayerIndex = winnerIndex;
+                    setTimeout(startNewTrick, 1000);
+                }
+            } else if (team1HandsWon >= 7 || team2HandsWon >= 7) {
+                if (team1HandsWon === 7 && team2HandsWon === 0) {
+                    if (players[0].isHuman) {
+                        katMessageEl.classList.remove('hidden');
+                    } else {
+                        if (players[hokmPlayerIndex].decideBam()) {
+                            isAttemptingBam = true;
+                            showMessage('AI تصمیم به تلاش برای "بام" گرفت.');
+                            setTimeout(startNewTrick, 1000);
+                        } else {
+                            endRound();
+                        }
+                    }
+                } else {
+                    endRound();
+                }
+            } else {
+                currentPlayerIndex = winnerIndex;
+                setTimeout(startNewTrick, 1000);
+            }
+        }
+        
+        function endRound() {
+            console.log("دور به پایان رسید.");
+            
+            playerHands['player-top'].classList.add('hidden');
+            playerHands['player-left'].classList.add('hidden');
+            playerHands['player-right'].classList.add('hidden');
+
+            const isHakemTeam1 = (hokmPlayerIndex === 0 || hokmPlayerIndex === 2);
+            let scoreToAdd = 0;
+            let winningTeam = null;
+
+            if (team1HandsWon === 13) { // Bam
+                winningTeam = 1;
+                scoreToAdd = 5;
+                team1MainScore += scoreToAdd;
+                showGameOverMessage('تبریک! تیم شما "بام" کرد و بازی را برد! 🥳');
+                isGameRunning = false;
+            } else if (team2HandsWon === 13) { // Bam
+                winningTeam = 2;
+                scoreToAdd = 5;
+                team2MainScore += scoreToAdd;
+                showGameOverMessage('متاسفم! تیم حریف "بام" کرد و بازی را برد. 😔');
+                isGameRunning = false;
+            } else if (team1HandsWon >= 7) {
+                winningTeam = 1;
+                if (team2HandsWon === 0) { // Kat
+                    scoreToAdd = isHakemTeam1 ? 2 : 3;
+                } else { // Standard win
+                    scoreToAdd = 1;
+                }
+                team1MainScore += scoreToAdd;
+            } else if (team2HandsWon >= 7) {
+                winningTeam = 2;
+                if (team1HandsWon === 0) { // Kat
+                    scoreToAdd = isHakemTeam1 ? 3 : 2;
+                } else { // Standard win
+                    scoreToAdd = 1;
+                }
+                team2MainScore += scoreToAdd;
+            }
+            
+            updateScores();
+
+            if (isGameRunning) {
+                const winCondition = 7;
+                if (team1MainScore >= winCondition || team2MainScore >= winCondition) {
+                    if (Math.abs(team1MainScore - team2MainScore) >= 2) {
+                         showGameOverMessage(`بازی به پایان رسید. تیم ${team1MainScore > team2MainScore ? 'شما' : 'حریف'} برنده شد!`);
+                         return;
+                    }
+                }
+
+                if ((winningTeam === 1 && isHakemTeam1) || (winningTeam === 2 && !isHakemTeam1)) {
+                    console.log("تیم حاکم برنده شد. حاکم ثابت می‌ماند.");
+                } else {
+                    hokmPlayerIndex = (hokmPlayerIndex + 1) % 4;
+                    console.log("تیم حاکم باخت. حاکم به نفر بعدی منتقل می‌شود.");
+                }
+                
+                setTimeout(startNewRound, 2000);
+            }
+        }
+
+        function updateScores() {
+            team1MainScoreEl.textContent = team1MainScore;
+            team2MainScoreEl.textContent = team2MainScore;
+            team1HandsWonEl.textContent = team1HandsWon;
+            team2HandsWonEl.textContent = team2HandsWon;
+        }
+        
+        function toggleCardClicks(leadingSuit) {
+            const handEl = playerHands[players[0].id];
+            const allCards = handEl.querySelectorAll('.card');
+            
+            const humanPlayerHasLeadingSuit = players[0].hand.some(c => c.suit === leadingSuit);
+            
+            allCards.forEach(cardEl => {
+                const card = players[0].hand.find(c => c.suit === cardEl.dataset.suit && c.value === cardEl.dataset.value);
+                
+                if (hokm && hokmMode === null) { // Normal mode
+                    if (leadingSuit && humanPlayerHasLeadingSuit) {
+                        if (card.suit !== leadingSuit) {
+                            cardEl.classList.add('disabled');
+                        } else {
+                            cardEl.classList.remove('disabled');
+                        }
+                    } else {
+                        cardEl.classList.remove('disabled');
+                    }
+                } else { // Sars, Nars, As Nars modes
+                    cardEl.classList.remove('disabled');
+                }
+            });
+        }
+
+        function renderHands(isHokmSelection = false) {
+            const humanPlayer = players[0];
+            const handEl = playerHands[humanPlayer.id];
+            handEl.innerHTML = '';
+            
+            // Define the desired suit order
+            const suitOrder = ['diamond', 'spade', 'heart', 'club'];
+            
+            const currentValueMap = hokmMode ? valueMaps[hokmMode] : normalValueMap;
+
+            // Sort all cards first by the defined suit order, then by value
+            humanPlayer.hand.sort((a, b) => {
+                const suitIndexA = suitOrder.indexOf(a.suit);
+                const suitIndexB = suitOrder.indexOf(b.suit);
+                if (suitIndexA !== suitIndexB) {
+                    return suitIndexA - suitIndexB;
+                }
+                return currentValueMap[b.value] - currentValueMap[a.value];
+            });
+
+            // Create and append card elements to the hand
+            humanPlayer.hand.forEach(card => {
+                const cardEl = card.createElement();
+                if (isHokmSelection) {
+                    const modeButtons = document.querySelectorAll('.hokm-modes button');
+                    cardEl.addEventListener('click', () => {
+                        modeButtons.forEach(btn => btn.classList.add('disabled'));
+                        cardEl.classList.add('active-selection');
+                        selectHokm(card, null);
+                    });
+                    modeButtons.forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            selectHokm(null, btn.dataset.mode);
+                        });
+                    });
+                } else {
+                    cardEl.addEventListener('click', () => {
+                        const leadingCard = trick.length > 0 ? trick[0].card : null;
+                        const leadingSuit = leadingCard ? leadingCard.suit : null;
+                        const hasLeadingSuit = players[0].hand.some(c => c.suit === leadingSuit);
+                        
+                        if (hokm && hokmMode === null) { // Normal mode
+                            if (leadingCard && card.suit !== leadingSuit && hasLeadingSuit) {
+                                showMessage(`شما باید کارت از خال ${suitSymbols[leadingSuit]} بازی کنید.`);
+                                return;
+                            }
+                        }
+                        
+                        if (humanTurnResolver) {
+                            humanTurnResolver(card);
+                        }
+                    });
+                }
+                handEl.appendChild(cardEl);
+            });
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            startNewGame();
+        });
+    </script>
+</body>
+</html>
