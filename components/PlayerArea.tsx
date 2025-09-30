@@ -1,3 +1,5 @@
+<script async type="module" src="https://esm.sh/react@18.3.1"></script>
+<script async type="module" src="https://esm.sh/react-dom@18.3.1/client"></script>
 import React from 'react';
 import { Player, Card as CardType, GameState } from '../types';
 import Card from './Card';
@@ -56,7 +58,7 @@ const PlayerArea: React.FC<PlayerAreaProps> = ({ player, position, isCurrentPlay
     return { zIndex: index };
   };
 
-  const hokmSymbol = hokm.mode === 'Normal' ? SUIT_SYMBOLS[hokm.suit!] : (hokm.mode === 'Nars' ? '2' : hokm.mode === 'AceNars' ? 'A2' : 'A');
+  const hokmSymbol = hokm.mode === 'Normal' && hokm.suit ? SUIT_SYMBOLS[hokm.suit] : (hokm.mode === 'Nars' ? '2' : hokm.mode === 'AceNars' ? 'A2' : 'A');
 
   return (
     <div className={`relative flex ${getPositionClasses()}`}>
@@ -70,8 +72,8 @@ const PlayerArea: React.FC<PlayerAreaProps> = ({ player, position, isCurrentPlay
         )}
       </div>
 
-      <div className={`relative ${getHandContainerClasses()}`} style={{ minHeight: '120px', minWidth: '100px'}}>
-        {player.hand.map((card, index) => {
+      <div className={`relative ${getHandContainerClasses()}`} style={{ minHeight: isHuman ? '120px' : '0', minWidth: isHuman ? '100px' : 'auto'}}>
+        {isHuman && player.hand.map((card, index) => {
             const isPlayable = validMoves.some(c => c.id === card.id);
             return (
                 <div 

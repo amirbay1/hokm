@@ -1,3 +1,5 @@
+<script async type="module" src="https://esm.sh/react@18.3.1"></script>
+<script async type="module" src="https://esm.sh/react-dom@18.3.1/client"></script>
 import React, { useEffect } from 'react';
 import PlayerArea from './PlayerArea';
 import Card from './Card';
@@ -44,7 +46,7 @@ const GameTable: React.FC<GameTableProps> = ({ gameLogic }) => {
   }
   
   return (
-    <div className="w-full h-full max-w-7xl max-h-[1000px] relative bg-felt-green rounded-xl md:rounded-3xl border-4 md:border-8 border-wood-light shadow-2xl">
+    <div className="w-full aspect-[5/4] max-w-7xl max-h-[90vh] sm:max-h-[1000px] relative bg-felt-green rounded-xl md:rounded-3xl border-4 md:border-8 border-wood-light shadow-2xl">
         {phase === 'GAME_OVER' && (
             <div className="absolute inset-0 bg-black bg-opacity-70 flex flex-col items-center justify-center z-50 rounded-lg md:rounded-2xl">
                 <div className="text-2xl sm:text-4xl font-bold mb-4 text-yellow-400">{gameState.message}</div>
