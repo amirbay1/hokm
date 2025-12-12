@@ -1,6 +1,6 @@
 const CACHE_NAME = 'hokm-v1';
 const urlsToCache = [
-  '/',
+  '/hokm',
   '/hokm/index.html',
   '/hokm/manifest.json',
   '/hokm/icon-192.png',
