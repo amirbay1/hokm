@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>بازی حکم - نسخه حرفه‌ای</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="icon" type="image/x-icon" href="./favicon.ico">
+    <link rel="icon" type="image/x-icon" href="/hokm/favicon.ico">
     <style>
         :root {
             --primary-green: #1e6b3a;
@@ -1540,7 +1540,7 @@
         })();
         // ثبت Service Worker
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js')
+  navigator.serviceWorker.register('/hokm/sw.js')
     .then(reg => console.log('SW registered'))
     .catch(err => console.log('SW failed', err));
 }
