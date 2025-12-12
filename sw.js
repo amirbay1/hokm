@@ -1,10 +1,10 @@
 const CACHE_NAME = 'hokm-v1';
 const urlsToCache = [
   '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png'
+  '/hokm/index.html',
+  '/hokm/manifest.json',
+  '/hokm/icon-192.png',
+  '/hokm/icon-512.png'
 ];
 
 self.addEventListener('install', event => {
