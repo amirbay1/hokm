@@ -6,7 +6,7 @@
     <title>بازی حکم</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <!-- لینک به فایل مانیفست -->
-    <link rel="manifest" href="ا./hokm/manifest.json">
+    <link rel="manifest" href="/hokm/manifest.json">
     
     <!-- تنظیم رنگ نوار آدرس مرورگر موبایل (طبق مانیفست شما) -->
     <meta name="theme-color" content="#1e6b3a">
@@ -1199,7 +1199,7 @@
         if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
         // دقت کنید که آدرس sw.js باید دقیق باشد
-        navigator.serviceWorker.register('./hokm/sw.js')
+        navigator.serviceWorker.register('/hokm/sw.js')
             .then(function(registration) {
                 console.log('ServiceWorker registered with scope: ', registration.scope);
             }, function(err) {
