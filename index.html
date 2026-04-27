@@ -847,59 +847,107 @@
             }
         }
 
-        function aiPick(pid) {
-            const can = playable(pid);
-            const hi = [...can].sort((a, b) => cardVal(b, G.trumpMode) - cardVal(a, G.trumpMode));
-            const lo = [...can].sort((a, b) => cardVal(a, G.trumpMode) - cardVal(b, G.trumpMode));
-            const partner = PARTNER[pid];
-            const win = G.trick.length ? trickWinner(G.trick, G.leadSuit, G.trumpMode, G.trump) : null;
-            const partnerWin = win && win.player === partner;
-            const lead = G.trick.length === 0;
+        // تابع تشخیص برگ حکم با توجه به حالت‌های مختلف
+function isTrump(c, mode, trump) {
+    if (mode === 'normal') return c.suit === trump;
+    if (mode === 'ners') return c.rank === '2';
+    if (mode === 'asners') return c.rank === 'A' || c.rank === '2';
+    if (mode === 'sers') return c.rank === 'A';
+    return false;
+}
 
-            if (lead) {
-                const nonT = hi.filter(c => G.trumpMode !== 'normal' || c.suit !== G.trump);
-                if (nonT.length) {
-                    const ace = nonT.find(c => c.rank === 'A');
-                    if (ace) return ace;
-                    for (const c of nonT) if (c.rank === 'K' && G.memory.aces[c.suit]) return c;
-                    return nonT[Math.floor(nonT.length / 2)];
+function aiPick(pid) {
+    const can = playable(pid);
+    const hi = [...can].sort((a, b) => cardVal(b, G.trumpMode) - cardVal(a, G.trumpMode));
+    const lo = [...can].sort((a, b) => cardVal(a, G.trumpMode) - cardVal(b, G.trumpMode));
+    const partner = PARTNER[pid];
+    const lead = G.trick.length === 0;
+    const win = G.trick.length ? trickWinner(G.trick, G.leadSuit, G.trumpMode, G.trump) : null;
+    const partnerWin = win && win.player === partner;
+
+    // *** قانون یار شروع‌کننده (نفر سوم) ***
+    if (G.trick.length === 2 && G.trick[0].player && pid === PARTNER[G.trick[0].player]) {
+        const mustFollow = can.some(c => c.suit === G.leadSuit);
+        if (mustFollow) {
+            // همیشه بالاترین کارت خال شروع را بازی کن
+            const suitCards = can.filter(c => c.suit === G.leadSuit);
+            return suitCards.reduce((max, c) => cardVal(c, G.trumpMode) > cardVal(max, G.trumpMode) ? c : max, suitCards[0]);
+        } else {
+            // خال شروع را ندارد
+            const currentWinner = win; // برنده فعلی تا این لحظه
+            const oppWins = currentWinner && G.players[currentWinner.player].team !== G.players[pid].team;
+            if (oppWins) {
+                // حریف برنده است، باید برش بزند
+                // پیدا کردن حکم‌هایی که دست را می‌برند
+                const trumpsThatBeat = can.filter(c => 
+                    isTrump(c, G.trumpMode, G.trump) &&
+                    cmpCards(c, currentWinner.card, G.leadSuit, G.trumpMode, G.trump) > 0
+                );
+                if (trumpsThatBeat.length > 0) {
+                    // کوچک‌ترین حکمی که می‌برد
+                    return trumpsThatBeat.reduce((min, c) => 
+                        cardVal(c, G.trumpMode) < cardVal(min, G.trumpMode) ? c : min, 
+                        trumpsThatBeat[0]
+                    );
+                } else {
+                    // نمی‌تواند برش بزند، یک کارت بی‌ارزش بینداز
+                    const nonTrump = lo.filter(c => !isTrump(c, G.trumpMode, G.trump));
+                    return nonTrump.length ? nonTrump[0] : lo[0];
                 }
-                return hi[Math.floor(hi.length / 2)];
+            } else {
+                // هم‌تیمی برنده است، کارت بی‌ارزش بینداز
+                const nonTrump = lo.filter(c => !isTrump(c, G.trumpMode, G.trump));
+                return nonTrump.length ? nonTrump[0] : lo[0];
             }
-
-            const mustFollow = can.some(c => c.suit === G.leadSuit);
-
-            if (partnerWin) {
-                if (mustFollow) return lo.filter(c => c.suit === G.leadSuit)[0];
-                const nt = lo.filter(c => G.trumpMode !== 'normal' || c.suit !== G.trump);
-                return nt.length ? nt[0] : lo[0];
-            }
-
-            if (mustFollow) {
-                const suit = hi.filter(c => c.suit === G.leadSuit);
-                const best = G.trick.filter(t => t.card.suit === G.leadSuit)
-                    .reduce((m, t) => !m || cardVal(t.card, G.trumpMode) > cardVal(m, G.trumpMode) ? t.card : m, null);
-                if (best) {
-                    const beats = suit.filter(c => cardVal(c, G.trumpMode) > cardVal(best, G.trumpMode));
-                    if (beats.length) return beats[beats.length - 1];
-                }
-                return suit[suit.length - 1];
-            }
-
-            const trumps = hi.filter(c => G.trumpMode === 'normal' && c.suit === G.trump);
-            const nonT = lo.filter(c => G.trumpMode !== 'normal' || c.suit !== G.trump);
-            const oppWin = win && G.players[win.player].team !== G.players[pid].team;
-
-            if (oppWin && trumps.length) {
-                const wc = win.card;
-                const wt = G.trumpMode === 'normal' && wc.suit === G.trump;
-                if (!wt) return trumps[trumps.length - 1];
-                const higher = trumps.filter(c => cardVal(c, G.trumpMode) > cardVal(wc, G.trumpMode));
-                if (higher.length) return higher[higher.length - 1];
-            }
-
-            return nonT.length ? nonT[0] : lo[0];
         }
+    }
+    // *** پایان قانون یار ***
+
+    // منطق اصلی برای سایر بازیکنان (تغییری نکرده)
+    if (lead) {
+        const nonT = hi.filter(c => G.trumpMode !== 'normal' || c.suit !== G.trump);
+        if (nonT.length) {
+            const ace = nonT.find(c => c.rank === 'A');
+            if (ace) return ace;
+            for (const c of nonT) if (c.rank === 'K' && G.memory.aces[c.suit]) return c;
+            return nonT[Math.floor(nonT.length / 2)];
+        }
+        return hi[Math.floor(hi.length / 2)];
+    }
+
+    const mustFollow = can.some(c => c.suit === G.leadSuit);
+
+    if (partnerWin) {
+        if (mustFollow) return lo.filter(c => c.suit === G.leadSuit)[0];
+        const nt = lo.filter(c => G.trumpMode !== 'normal' || c.suit !== G.trump);
+        return nt.length ? nt[0] : lo[0];
+    }
+
+    if (mustFollow) {
+        const suit = hi.filter(c => c.suit === G.leadSuit);
+        const best = G.trick.filter(t => t.card.suit === G.leadSuit)
+            .reduce((m, t) => !m || cardVal(t.card, G.trumpMode) > cardVal(m, G.trumpMode) ? t.card : m, null);
+        if (best) {
+            const beats = suit.filter(c => cardVal(c, G.trumpMode) > cardVal(best, G.trumpMode));
+            if (beats.length) return beats[beats.length - 1];
+        }
+        return suit[suit.length - 1];
+    }
+
+    const trumps = hi.filter(c => G.trumpMode === 'normal' && c.suit === G.trump);
+    const nonT = lo.filter(c => G.trumpMode !== 'normal' || c.suit !== G.trump);
+    const oppWin = win && G.players[win.player].team !== G.players[pid].team;
+
+    if (oppWin && trumps.length) {
+        const wc = win.card;
+        const wt = G.trumpMode === 'normal' && wc.suit === G.trump;
+        if (!wt) return trumps[trumps.length - 1];
+        const higher = trumps.filter(c => cardVal(c, G.trumpMode) > cardVal(wc, G.trumpMode));
+        if (higher.length) return higher[higher.length - 1];
+    }
+
+    return nonT.length ? nonT[0] : lo[0];
+}
 
         async function nextTurn() {
             if (G.trick.length === 4) { await endTrick(); return; }
