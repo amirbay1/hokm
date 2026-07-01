@@ -679,11 +679,13 @@
 
         function cardVal(c, mode) {
             if (mode === 'ners') {
-                const o = ['A','K','Q','J','10','9','8','7','6','5','4','3','2'];
+                // نرس: ۲ بالاترین ارزش، آس پایین‌ترین ارزش
+                const o = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
                 return o.length - o.indexOf(c.rank);
             }
             if (mode === 'asners') {
-                const o = ['K','Q','J','10','9','8','7','6','5','4','3','2','A'];
+                // آس‌نرس: آس بالاترین ارزش، شاه پایین‌ترین ارزش
+                const o = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
                 return o.length - o.indexOf(c.rank);
             }
             return RANKS.indexOf(c.rank) + 1;
@@ -847,17 +849,95 @@
             }
         }
 
+        // ---------- ابزارهای شمارش کارت و تحلیل وضعیت برای هوش مصنوعی ----------
+
+        function opponentsOf(pid) {
+            const team = G.players[pid].team;
+            return [1, 2, 3, 4].filter(p => G.players[p].team !== team);
+        }
+
+        // بازیکنانی که هنوز در این دست کارت نزدن (به‌جز خود pid)
+        function stillToActPlayers(pid) {
+            const played = new Set(G.trick.map(t => t.player));
+            const rest = [];
+            for (let p = 1; p <= 4; p++) if (p !== pid && !played.has(p)) rest.push(p);
+            return rest;
+        }
+
+        // تعداد کارت‌های بزرگ‌تر از یک ارزش مشخص در یک خال، که نه بازی شده‌اند نه دست خودم هستن
+        // (یعنی احتمالاً دست یار یا حریف‌هاست)
+        function unaccountedHigherRanks(pid, suit, val, mode) {
+            const played = new Set(G.memory.played.filter(c => c.suit === suit).map(c => c.rank));
+            const mine = new Set(G.players[pid].hand.filter(c => c.suit === suit).map(c => c.rank));
+            let count = 0;
+            for (const r of RANKS) {
+                if (played.has(r) || mine.has(r)) continue;
+                if (cardVal({ rank: r, suit }, mode) > val) count++;
+            }
+            return count;
+        }
+
+        // آیا امکان داره یکی از بازیکنانی که هنوز نزدن، کارت بزرگ‌تری از این خال داشته باشه؟
+        function suitThreatExists(pid, suit, val, mode) {
+            if (unaccountedHigherRanks(pid, suit, val, mode) === 0) return false;
+            const rest = stillToActPlayers(pid);
+            for (const p of rest) {
+                const voids = G.memory.voids[p] || [];
+                if (!voids.includes(suit)) return true;
+            }
+            return false;
+        }
+
+        // آیا امکان داره یکی از بازیکنانی که هنوز نزدن، بتونه با حکم ببره؟
+        function trumpCutThreatExists(pid, mode, trump) {
+            if (mode !== 'normal' || !trump) return false;
+            if (unaccountedHigherRanks(pid, trump, 0, mode) === 0) return false;
+            const rest = stillToActPlayers(pid);
+            for (const p of rest) {
+                const voids = G.memory.voids[p] || [];
+                if (!voids.includes(trump)) return true;
+            }
+            return false;
+        }
+
+        // آیا کارت داده‌شده، با توجه به شمارش کارت‌ها، قطعا برنده‌ی این دسته؟
+        function isSecureWin(pid, card, mode, trump) {
+            if (suitThreatExists(pid, card.suit, cardVal(card, mode), mode)) return false;
+            if (mode === 'normal' && card.suit !== trump && trumpCutThreatExists(pid, mode, trump)) return false;
+            return true;
+        }
+
+        // میزان ریسک‌پذیری بر اساس وضعیت کلی راند (عقب/جلو بودن و دست‌های باقی‌مانده)
+        function riskAppetite(pid) {
+            const team = G.players[pid].team;
+            const opp = team === 'A' ? 'B' : 'A';
+            const behindBy = G.tricksWon[opp] - G.tricksWon[team];
+            const tricksLeft = 13 - G.trickNum;
+            let score = behindBy * 2;
+            if (tricksLeft <= 4) score += behindBy > 0 ? 3 : -1;
+            return score;
+        }
+
         function aiPick(pid) {
+            const mode = G.trumpMode, trump = G.trump;
             const can = playable(pid);
-            const hi = [...can].sort((a, b) => cardVal(b, G.trumpMode) - cardVal(a, G.trumpMode));
-            const lo = [...can].sort((a, b) => cardVal(a, G.trumpMode) - cardVal(b, G.trumpMode));
+            const hi = [...can].sort((a, b) => cardVal(b, mode) - cardVal(a, mode));
+            const lo = [...can].sort((a, b) => cardVal(a, mode) - cardVal(b, mode));
             const partner = PARTNER[pid];
-            const win = G.trick.length ? trickWinner(G.trick, G.leadSuit, G.trumpMode, G.trump) : null;
-            const partnerWin = win && win.player === partner;
             const lead = G.trick.length === 0;
 
+            // ---------- شروع یک دست جدید ----------
             if (lead) {
-                const nonT = hi.filter(c => G.trumpMode !== 'normal' || c.suit !== G.trump);
+                if (mode === 'normal' && trump) {
+                    const opps = opponentsOf(pid);
+                    const bothOppVoidTrump = opps.every(p => (G.memory.voids[p] || []).includes(trump));
+                    const myTrumps = hi.filter(c => c.suit === trump);
+                    if (bothOppVoidTrump && myTrumps.length) {
+                        // هر دو حریف حکم ندارن؛ حکم‌های باقی‌مونده مال خودم یا یارمه، پس با خیال راحت حکم بزنم
+                        return myTrumps[0];
+                    }
+                }
+                const nonT = hi.filter(c => mode !== 'normal' || c.suit !== trump);
                 if (nonT.length) {
                     const ace = nonT.find(c => c.rank === 'A');
                     if (ace) return ace;
@@ -867,34 +947,62 @@
                 return hi[Math.floor(hi.length / 2)];
             }
 
+            const win = trickWinner(G.trick, G.leadSuit, mode, trump);
+            const partnerWin = win.player === partner;
             const mustFollow = can.some(c => c.suit === G.leadSuit);
+            // نفر سوم بازی = یار شروع‌کننده‌ی همین دست
+            const isThirdPlayer = G.trick.length === 2 && partner === G.starter;
+
+            // ---------- باید از خال لید پیروی کنم ----------
+            if (mustFollow) {
+                const suit = hi.filter(c => c.suit === G.leadSuit); // نزولی
+                const suitAsc = lo.filter(c => c.suit === G.leadSuit); // صعودی
+
+                if (partnerWin) {
+                    if (isSecureWin(pid, win.card, mode, trump)) {
+                        // یارم قطعا می‌بره، کارت بی‌ارزش می‌دم
+                        return suitAsc[0];
+                    }
+                    // نامشخصه؛ بر اساس وضعیت راند تصمیم می‌گیرم
+                    const beatCards = suit.filter(c => cardVal(c, mode) > cardVal(win.card, mode));
+                    if (riskAppetite(pid) > 0 && beatCards.length) {
+                        return [...beatCards].sort((a, b) => cardVal(a, mode) - cardVal(b, mode))[0];
+                    }
+                    return suitAsc[0];
+                }
+
+                const beatCards = suit.filter(c => cardVal(c, mode) > cardVal(win.card, mode));
+                if (isThirdPlayer) {
+                    // نفر سوم: اگه می‌تونه ببره، بزرگ‌ترین کارت اون خال رو بزنه
+                    // (یا می‌بره، یا نفر چهارم رو مجبور به خرج کردن کارت باارزشش می‌کنه)
+                    if (beatCards.length) return beatCards[0]; // suit نزولیه، اولی بزرگ‌ترینه
+                    return suitAsc[0];
+                }
+                // بقیه (نفر دوم / نفر چهارم): کمترین کارت کافی برای بردن
+                if (beatCards.length) {
+                    return [...beatCards].sort((a, b) => cardVal(a, mode) - cardVal(b, mode))[0];
+                }
+                return suitAsc[0];
+            }
+
+            // ---------- خال لید رو ندارم (تصمیم بریدن) ----------
+            const trumps = mode === 'normal' ? hi.filter(c => c.suit === trump) : [];
+            const nonT = lo.filter(c => mode !== 'normal' || c.suit !== trump);
 
             if (partnerWin) {
-                if (mustFollow) return lo.filter(c => c.suit === G.leadSuit)[0];
-                const nt = lo.filter(c => G.trumpMode !== 'normal' || c.suit !== G.trump);
-                return nt.length ? nt[0] : lo[0];
-            }
-
-            if (mustFollow) {
-                const suit = hi.filter(c => c.suit === G.leadSuit);
-                const best = G.trick.filter(t => t.card.suit === G.leadSuit)
-                    .reduce((m, t) => !m || cardVal(t.card, G.trumpMode) > cardVal(m, G.trumpMode) ? t.card : m, null);
-                if (best) {
-                    const beats = suit.filter(c => cardVal(c, G.trumpMode) > cardVal(best, G.trumpMode));
-                    if (beats.length) return beats[beats.length - 1];
+                if (isSecureWin(pid, win.card, mode, trump)) {
+                    return nonT.length ? nonT[0] : lo[0];
                 }
-                return suit[suit.length - 1];
+                if (riskAppetite(pid) > 0 && trumps.length) {
+                    return trumps[trumps.length - 1]; // کمترین حکم کافی برای تضمین دست
+                }
+                return nonT.length ? nonT[0] : lo[0];
             }
 
-            const trumps = hi.filter(c => G.trumpMode === 'normal' && c.suit === G.trump);
-            const nonT = lo.filter(c => G.trumpMode !== 'normal' || c.suit !== G.trump);
-            const oppWin = win && G.players[win.player].team !== G.players[pid].team;
-
-            if (oppWin && trumps.length) {
-                const wc = win.card;
-                const wt = G.trumpMode === 'normal' && wc.suit === G.trump;
+            if (trumps.length) {
+                const wt = mode === 'normal' && win.card.suit === trump;
                 if (!wt) return trumps[trumps.length - 1];
-                const higher = trumps.filter(c => cardVal(c, G.trumpMode) > cardVal(wc, G.trumpMode));
+                const higher = trumps.filter(c => cardVal(c, mode) > cardVal(win.card, mode));
                 if (higher.length) return higher[higher.length - 1];
             }
 
@@ -926,20 +1034,27 @@
             hidePopup();
             G.starter = w.player;
 
-            if (G.bamMode && G.tricksWon[G.kotTeam] === 13) {
-                showEnd(G.kotTeam, true);
+            if (G.bamMode) {
+                if (G.tricksWon[G.kotTeam] === 13) {
+                    showEnd(G.kotTeam, true);
+                    return;
+                }
+                if (G.trickNum === 13) {
+                    // بام شکست خورد؛ راند طبق تعداد دست‌های برده‌شده تمام می‌شود
+                    await endRound();
+                    return;
+                }
+                await startTrick();
                 return;
             }
 
-            if (!G.bamMode) {
-                if (G.tricksWon.A === 7 && G.tricksWon.B === 0) {
-                    await handleKot('A');
-                    return;
-                }
-                if (G.tricksWon.B === 7 && G.tricksWon.A === 0) {
-                    await handleKot('B');
-                    return;
-                }
+            if (G.tricksWon.A === 7 && G.tricksWon.B === 0) {
+                await handleKot('A');
+                return;
+            }
+            if (G.tricksWon.B === 7 && G.tricksWon.A === 0) {
+                await handleKot('B');
+                return;
             }
 
             if (G.tricksWon.A >= 7 || G.tricksWon.B >= 7) {
@@ -978,6 +1093,8 @@
                 $('kotMsg').textContent = `کت کردید! (+${G.kotPoints} امتیاز)`;
                 $('kotModal').classList.add('show');
             } else {
+                G.score[team] += G.kotPoints;
+                updateUI();
                 if (Math.random() < 0.15) {
                     G.bamMode = true;
                     showPopup('حریف درخواست بام!');
@@ -985,8 +1102,6 @@
                     hidePopup();
                     await startTrick();
                 } else {
-                    G.score[team] += G.kotPoints;
-                    updateUI();
                     await endRound();
                 }
             }
